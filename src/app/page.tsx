@@ -1,38 +1,42 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
-
 export default function HomePage() {
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo:
-          "https://vibespace-pi.vercel.app/post",
-      },
-    });
-  };
-
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="text-center">
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
 
-        <h1 className="text-7xl font-black mb-5">
-          VibeSpace ✨
-        </h1>
+      <h1 className="text-7xl font-black mb-4">
+        VibeSpace ✨
+      </h1>
 
-        <p className="text-white/60 mb-10">
-          Share your mood with the world.
-        </p>
+      <p className="text-white/60 mb-10">
+        Share your vibes without fear.
+      </p>
 
-        <button
-          onClick={signInWithGoogle}
-          className="bg-white text-black px-8 py-4 rounded-full font-bold hover:scale-105 transition"
+      <div className="flex gap-4">
+
+        <a
+          href="/post"
+          className="bg-purple-500 px-6 py-3 rounded-xl"
         >
-          Continue with Google
-        </button>
+          Share Post
+        </a>
+
+        <a
+          href="/explore"
+          className="bg-white/10 px-6 py-3 rounded-xl"
+        >
+          Explore
+        </a>
+
+        <a
+          href="/login"
+          className="bg-white text-black px-6 py-3 rounded-xl"
+        >
+          Login
+        </a>
 
       </div>
+
     </main>
   );
 }

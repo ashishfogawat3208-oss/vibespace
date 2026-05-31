@@ -18,6 +18,7 @@ type DbPost = {
   mood: Mood;
   username: string;
   avatar: string;
+  email: string;
   comments: string[];
   heart: number;
   cry: number;
@@ -101,6 +102,8 @@ export default function PostPage() {
           avatar:
           user?.user_metadata?.avatar_url ||
           "",
+          email:
+          user?.email || "",          
           comments: [],
           heart: 0,
           cry: 0,
@@ -250,9 +253,17 @@ export default function PostPage() {
               className="bg-white/5 border border-white/10 rounded-3xl p-6"
             >
             <div className="flex items-center gap-3 mb-2">
-               <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
-                 👤
-                 </div>
+               {post.avatar ? (
+  <img
+    src={post.avatar}
+    alt="avatar"
+    className="w-10 h-10 rounded-full object-cover"
+  />
+) : (
+  <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
+    👤
+  </div>
+)}
                  <div className="font-bold text-white">
                   {post.username}
                   </div>
@@ -313,12 +324,14 @@ export default function PostPage() {
                 />
               )}
 
-              <button
-                onClick={() => deletePost(post.id)}
-                className="mt-4 text-red-400"
-              >
-                🗑️ Delete
-              </button>
+              {user?.email === post.email && (
+  <button
+    onClick={() => deletePost(post.id)}
+    className="mt-4 text-red-400"
+  >
+    🗑️ Delete
+  </button>
+)}
 
             </div>
           ))}

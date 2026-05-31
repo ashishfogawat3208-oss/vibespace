@@ -16,6 +16,7 @@ type DbPost = {
   id: number;
   text: string;
   mood: Mood;
+  username: string;
   comments: string[];
   heart: number;
   cry: number;
@@ -26,9 +27,14 @@ type DbPost = {
 
 export default function PostPage() {
   const [text, setText] = useState("");
-  const [mood, setMood] = useState<Mood>("🌙 Midnight Thoughts");
+  const [mood, setMood] =
+    useState<Mood>("🌙 Midnight Thoughts");
+
   const [posts, setPosts] = useState<DbPost[]>([]);
-  const [openComments, setOpenComments] = useState<number | null>(null);
+  const [openComments, setOpenComments] =
+    useState<number | null>(null);
+
+  const [user, setUser] = useState<any>(null);
 
   const loadPosts = async () => {
     const { data, error } = await supabase
@@ -43,6 +49,10 @@ export default function PostPage() {
 
   useEffect(() => {
     loadPosts();
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
 
     const channel = supabase
       .channel("posts-realtime")
@@ -64,6 +74,11 @@ export default function PostPage() {
     };
   }, []);
 
+  const logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   const handlePost = async () => {
     if (!text.trim()) return;
 
@@ -73,6 +88,10 @@ export default function PostPage() {
         {
           text,
           mood,
+          username:
+            user?.user_metadata?.full_name ||
+            user?.email ||
+            "Anonymous",
           comments: [],
           heart: 0,
           cry: 0,
@@ -102,7 +121,12 @@ export default function PostPage() {
 
   const react = async (
     post: DbPost,
-    reaction: "heart" | "cry" | "fire" | "hug" | "moon"
+    reaction:
+      | "heart"
+      | "cry"
+      | "fire"
+      | "hug"
+      | "moon"
   ) => {
     const { error } = await supabase
       .from("posts")
@@ -138,18 +162,47 @@ export default function PostPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-20">
-      <div className="max-w-2xl mx-auto">
+  <main className="min-h-screen bg-black text-white px-6 py-20">
+    <div className="max-w-2xl mx-auto">
 
-        <h1 className="text-5xl font-black mb-8">
-          Share Your Vibe ✨
-        </h1>
+      <button
+        onClick={() => window.location.href = "/"}
+        className="mb-5 bg-white/10 px-4 py-2 rounded-xl hover:bg-white/20"
+      >
+        ← Home
+      </button>
+
+      <h1 className="text-5xl font-black mb-2">
+        Share Your Vibe ✨
+      </h1>
+
+        {user && (
+  <div className="flex justify-between items-center mb-8">
+
+    <div className="text-purple-400">
+      Welcome,
+      {" "}
+      {user.user_metadata?.full_name ||
+        user.email}
+    </div>
+
+    <button
+      onClick={logout}
+      className="bg-red-500 hover:bg-red-400 px-4 py-2 rounded-xl"
+    >
+      Logout
+    </button>
+
+  </div>
+)}
 
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6">
 
           <select
             value={mood}
-            onChange={(e) => setMood(e.target.value as Mood)}
+            onChange={(e) =>
+              setMood(e.target.value as Mood)
+            }
             className="w-full mb-4 bg-black/30 border border-white/10 rounded-xl p-3"
           >
             <option>💔 Heartbroken</option>
@@ -162,7 +215,9 @@ export default function PostPage() {
 
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) =>
+              setText(e.target.value)
+            }
             placeholder="What's on your mind?"
             className="w-full h-40 bg-black/30 border border-white/10 rounded-2xl p-5 outline-none resize-none text-lg"
           />
@@ -170,7 +225,7 @@ export default function PostPage() {
           <div className="flex justify-end mt-5">
             <button
               onClick={handlePost}
-              className="px-6 py-3 rounded-full bg-purple-500 hover:bg-purple-400 transition font-semibold"
+              className="px-6 py-3 rounded-full bg-purple-500 hover:bg-purple-400 transition"
             >
               Post Vibe
             </button>
@@ -185,89 +240,77 @@ export default function PostPage() {
               key={post.id}
               className="bg-white/5 border border-white/10 rounded-3xl p-6"
             >
-              <div className="flex justify-between items-start">
-
-                <div className="w-full">
-
-                  <span className="text-purple-400 text-sm">
-                    {post.mood}
-                  </span>
-
-                  <p className="text-lg mt-3">
-                    {post.text}
-                  </p>
-
-                  <div className="flex gap-4 flex-wrap mt-5">
-
-                    <button
-                      onClick={() => react(post, "heart")}
-                      className="hover:scale-110 transition"
-                    >
-                      ❤️ {post.heart}
-                    </button>
-
-                    <button
-                      onClick={() => react(post, "cry")}
-                      className="hover:scale-110 transition"
-                    >
-                      😭 {post.cry}
-                    </button>
-
-                    <button
-                      onClick={() => react(post, "fire")}
-                      className="hover:scale-110 transition"
-                    >
-                      🔥 {post.fire}
-                    </button>
-
-                    <button
-                      onClick={() => react(post, "hug")}
-                      className="hover:scale-110 transition"
-                    >
-                      🫂 {post.hug}
-                    </button>
-
-                    <button
-                      onClick={() => react(post, "moon")}
-                      className="hover:scale-110 transition"
-                    >
-                      🌙 {post.moon}
-                    </button>
-
+            <div className="flex items-center gap-3 mb-2">
+               <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
+                 👤
+                 </div>
+                 <div className="font-bold text-white">
+                  {post.username}
+                  </div>
+                  
                   </div>
 
-                  <button
-                    onClick={() =>
-                      setOpenComments(
-                        openComments === post.id
-                          ? null
-                          : post.id
-                      )
-                    }
-                    className="mt-4 text-purple-400 hover:text-purple-300 text-sm"
-                  >
-                    💬 {(post.comments || []).length} comments
-                  </button>
+              <div className="text-sm text-white/60 mt-1">
+                {post.mood}
+              </div>
 
-                  {openComments === post.id && (
-                    <CommentSection
-                      comments={post.comments || []}
-                      onAddComment={(comment) =>
-                        addComment(post, comment)
-                      }
-                    />
-                  )}
+              <p className="mt-3 text-lg">
+                {post.text}
+              </p>
 
-                </div>
+              <div className="flex gap-4 mt-5 flex-wrap">
 
-                <button
-                  onClick={() => deletePost(post.id)}
-                  className="text-red-400 hover:text-red-300 text-xl ml-4"
-                >
-                  🗑️
+                <button onClick={() => react(post, "heart")}>
+                  ❤️ {post.heart}
+                </button>
+
+                <button onClick={() => react(post, "cry")}>
+                  😭 {post.cry}
+                </button>
+
+                <button onClick={() => react(post, "fire")}>
+                  🔥 {post.fire}
+                </button>
+
+                <button onClick={() => react(post, "hug")}>
+                  🫂 {post.hug}
+                </button>
+
+                <button onClick={() => react(post, "moon")}>
+                  🌙 {post.moon}
                 </button>
 
               </div>
+
+              <button
+                onClick={() =>
+                  setOpenComments(
+                    openComments === post.id
+                      ? null
+                      : post.id
+                  )
+                }
+                className="mt-4 text-purple-400"
+              >
+                💬 {(post.comments || []).length} comments
+              </button>
+
+              {openComments === post.id && (
+                <CommentSection
+                  comments={post.comments || []}
+                  onAddComment={(comment) =>
+                    addComment(post, comment)
+                  }
+                />
+              )}
+
+              <button
+                onClick={() => deletePost(post.id)}
+                className="mt-4 text-red-400"
+              >
+                🗑️ Delete
+              </button>
+
             </div>
           ))}
 

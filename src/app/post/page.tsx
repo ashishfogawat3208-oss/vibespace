@@ -51,8 +51,13 @@ export default function PostPage() {
     loadPosts();
 
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
+  if (!data.user) {
+    window.location.href = "/login";
+    return;
+  }
+
+  setUser(data.user);
+});
 
     const channel = supabase
       .channel("posts-realtime")

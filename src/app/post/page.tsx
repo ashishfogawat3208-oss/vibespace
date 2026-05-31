@@ -17,6 +17,7 @@ type DbPost = {
   text: string;
   mood: Mood;
   username: string;
+  avatar: string;
   comments: string[];
   heart: number;
   cry: number;
@@ -94,9 +95,12 @@ export default function PostPage() {
           text,
           mood,
           username:
-            user?.user_metadata?.full_name ||
-            user?.email ||
-            "Anonymous",
+          user?.user_metadata?.full_name ||
+          user?.email ||
+          "Anonymous",
+          avatar:
+          user?.user_metadata?.avatar_url ||
+          "",
           comments: [],
           heart: 0,
           cry: 0,

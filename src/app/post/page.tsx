@@ -1,5 +1,6 @@
 "use client";
 
+import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CommentSection from "@/components/CommentSection";
@@ -176,13 +177,8 @@ export default function PostPage() {
   return (
   <main className="min-h-screen bg-black text-white px-6 py-20">
     <div className="max-w-2xl mx-auto">
-
-      <button
-        onClick={() => window.location.href = "/"}
-        className="mb-5 bg-white/10 px-4 py-2 rounded-xl hover:bg-white/20"
-      >
-        ← Home
-      </button>
+      
+      <Navbar />
 
       <h1 className="text-5xl font-black mb-2">
         Share Your Vibe ✨

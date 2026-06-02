@@ -275,17 +275,6 @@ export default function PostPage() {
           className="mt-4"
           />
 
-          <input
-  type="file"
-  accept="image/*"
-  onChange={(e) =>
-    setImage(
-      e.target.files?.[0] || null
-    )
-  }
-  className="mt-4"
-/>
-
 {image && (
   <img
     src={URL.createObjectURL(image)}

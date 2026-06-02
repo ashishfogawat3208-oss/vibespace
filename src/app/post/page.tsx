@@ -40,6 +40,9 @@ export default function PostPage() {
 
   const [user, setUser] = useState<any>(null);
 
+  const [image, setImage] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   const loadPosts = async () => {
     const { data, error } = await supabase
       .from("posts")
@@ -89,38 +92,68 @@ export default function PostPage() {
   };
 
   const handlePost = async () => {
-    if (!text.trim()) return;
+  if (!text.trim() && !image) return;
 
-    const { error } = await supabase
-      .from("posts")
-      .insert([
-        {
-          text,
-          mood,
-          username:
+  setUploading(true);
+
+  let imageUrl: string | null = null;
+
+  if (image) {
+    const fileName =
+      `${Date.now()}-${image.name}`;
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from("post-images")
+        .upload(fileName, image);
+
+    if (!uploadError) {
+      const { data } = supabase.storage
+        .from("post-images")
+        .getPublicUrl(fileName);
+
+      imageUrl = data.publicUrl;
+    }
+  }
+
+  const { error } = await supabase
+    .from("posts")
+    .insert([
+      {
+        text,
+        mood,
+        username:
           user?.user_metadata?.full_name ||
           user?.email ||
           "Anonymous",
-          avatar:
+
+        avatar:
           user?.user_metadata?.avatar_url ||
           "",
-          email:
-          user?.email || "",          
-          comments: [],
-          heart: 0,
-          cry: 0,
-          fire: 0,
-          hug: 0,
-          moon: 0,
-        },
-      ]);
 
-    if (!error) {
-      setText("");
-      setMood("🌙 Midnight Thoughts");
-      loadPosts();
-    }
-  };
+        email:
+          user?.email || "",
+
+        image_url: imageUrl,
+
+        comments: [],
+        heart: 0,
+        cry: 0,
+        fire: 0,
+        hug: 0,
+        moon: 0,
+      },
+    ]);
+
+  setUploading(false);
+
+  if (!error) {
+    setText("");
+    setImage(null);
+    setMood("🌙 Midnight Thoughts");
+    loadPosts();
+  }
+};
 
   const deletePost = async (id: number) => {
     const { error } = await supabase
@@ -223,6 +256,7 @@ export default function PostPage() {
           </select>
 
           <textarea
+          
             value={text}
             onChange={(e) =>
               setText(e.target.value)
@@ -230,13 +264,42 @@ export default function PostPage() {
             placeholder="What's on your mind?"
             className="w-full h-40 bg-black/30 border border-white/10 rounded-2xl p-5 outline-none resize-none text-lg"
           />
+          <input
+          type="file"
+          accept="image/*"
+          onChange={(e) =>
+            setImage(
+              e.target.files?.[0] || null
+            )
+          }
+          className="mt-4"
+          />
+
+          <input
+  type="file"
+  accept="image/*"
+  onChange={(e) =>
+    setImage(
+      e.target.files?.[0] || null
+    )
+  }
+  className="mt-4"
+/>
+
+{image && (
+  <img
+    src={URL.createObjectURL(image)}
+    alt="preview"
+    className="mt-4 rounded-2xl max-h-64 object-cover"
+  />
+)}
 
           <div className="flex justify-end mt-5">
             <button
               onClick={handlePost}
               className="px-6 py-3 rounded-full bg-purple-500 hover:bg-purple-400 transition"
             >
-              Post Vibe
+              {uploading ? "Uploading..." : "Post Vibe"}
             </button>
           </div>
 

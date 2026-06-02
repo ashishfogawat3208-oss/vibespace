@@ -20,6 +20,7 @@ type DbPost = {
   username: string;
   avatar: string;
   email: string;
+  image_url: string | null;
   comments: string[];
   heart: number;
   cry: number;

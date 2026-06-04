@@ -102,10 +102,13 @@ export default function PostPage() {
     const fileName =
       `${Date.now()}-${image.name}`;
 
-    const { error: uploadError } =
-      await supabase.storage
-        .from("post-images")
-        .upload(fileName, image);
+   const { data: uploadData, error: uploadError } =
+  await supabase.storage
+    .from("post-images")
+    .upload(fileName, image);
+
+console.log("UPLOAD DATA:", uploadData);
+console.log("UPLOAD ERROR:", uploadError);
 
     if (!uploadError) {
       const { data } = supabase.storage
@@ -326,10 +329,6 @@ export default function PostPage() {
               <p className="mt-3 text-lg">
                 {post.text}
               </p>
-
-              <div className="text-xs text-green-400 mt-2">
-  {post.image_url}
-</div>
 
               <div className="flex gap-4 mt-5 flex-wrap">
 

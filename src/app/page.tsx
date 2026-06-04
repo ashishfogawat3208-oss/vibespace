@@ -7,9 +7,38 @@ export default function HomePage() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-    });
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUser(user);
+
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (!profile) {
+          await supabase.from("profiles").insert([
+            {
+              id: user.id,
+              username:
+                user.user_metadata?.full_name ||
+                user.email,
+              avatar:
+                user.user_metadata?.avatar_url ||
+                "",
+              bio: "",
+            },
+          ]);
+        }
+      }
+    };
+
+    loadUser();
   }, []);
 
   const signInWithGoogle = async () => {
@@ -69,7 +98,7 @@ export default function HomePage() {
           <div>
 
             <h2 className="text-2xl font-bold text-purple-400 mb-8">
-              Welcome,{" "}
+              Welcome{" "}
               {user.user_metadata?.full_name ||
                 user.email}
               👋
@@ -89,6 +118,13 @@ export default function HomePage() {
                 className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl"
               >
                 Explore
+              </a>
+
+              <a
+                href="/profile"
+                className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl"
+              >
+                Profile
               </a>
 
               <button

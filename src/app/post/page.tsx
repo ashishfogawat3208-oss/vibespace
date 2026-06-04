@@ -119,6 +119,8 @@ console.log("UPLOAD ERROR:", uploadError);
     }
   }
 
+  console.log("IMAGE URL TO SAVE:", imageUrl);
+
   const { error } = await supabase
     .from("posts")
     .insert([
@@ -329,6 +331,14 @@ console.log("UPLOAD ERROR:", uploadError);
               <p className="mt-3 text-lg">
                 {post.text}
               </p>
+
+              {post.image_url && (
+                <img
+                src={post.image_url}
+                alt="post"
+                className="mt-4 rounded-2xl w-full max-h-[500px] object-cover"
+                />
+                )}
 
               <div className="flex gap-4 mt-5 flex-wrap">
 

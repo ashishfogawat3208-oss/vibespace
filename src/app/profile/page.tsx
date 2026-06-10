@@ -11,14 +11,17 @@ type Profile = {
   bio: string;
 };
 
+type Post = {
+  id: number;
+  text: string;
+  image_url: string | null;
+};
+
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<Profile | null>(
-    null
-  );
-
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [bio, setBio] = useState("");
-
   const [postCount, setPostCount] = useState(0);
+  const [posts, setPosts] = useState<Post[]>([]);
 
   const loadProfile = async () => {
     const {
@@ -50,6 +53,14 @@ export default function ProfilePage() {
       .eq("email", user.email);
 
     setPostCount(count || 0);
+
+    const { data: userPosts } = await supabase
+      .from("posts")
+      .select("*")
+      .eq("email", user.email)
+      .order("id", { ascending: false });
+
+    setPosts(userPosts || []);
   };
 
   useEffect(() => {
@@ -79,8 +90,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-black text-white px-6 py-20">
-
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
 
         <Navbar />
 
@@ -112,9 +122,7 @@ export default function ProfilePage() {
 
             <textarea
               value={bio}
-              onChange={(e) =>
-                setBio(e.target.value)
-              }
+              onChange={(e) => setBio(e.target.value)}
               className="w-full h-40 bg-black/30 border border-white/10 rounded-2xl p-4 resize-none"
               placeholder="Tell people about yourself..."
             />
@@ -130,8 +138,45 @@ export default function ProfilePage() {
 
         </div>
 
-      </div>
+        <div className="mt-12">
 
+          <h2 className="text-3xl font-black mb-8">
+            📸 Your Posts
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+
+            {posts.map((post) => (
+              <div
+                key={post.id}
+                className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden"
+              >
+                {post.image_url ? (
+                  <img
+                    src={post.image_url}
+                    alt="post"
+                    className="w-full h-60 object-cover"
+                  />
+                ) : (
+                  <div className="h-60 flex items-center justify-center text-6xl">
+                    ✨
+                  </div>
+                )}
+
+                <div className="p-4">
+                  <p className="text-white/80">
+                    {post.text}
+                  </p>
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+
+      </div>
     </main>
   );
 }

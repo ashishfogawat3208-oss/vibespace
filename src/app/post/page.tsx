@@ -15,6 +15,7 @@ type Mood =
 
 type DbPost = {
   id: number;
+  user_id: string;
   text: string;
   mood: Mood;
   username: string;
@@ -127,6 +128,10 @@ console.log("UPLOAD ERROR:", uploadError);
       {
         text,
         mood,
+        
+        user_id:
+        user?.id,
+        
         username:
           user?.user_metadata?.full_name ||
           user?.email ||

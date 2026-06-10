@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import Navbar from "@/components/Navbar";
 
 type Profile = {
+  id: string;
   username: string;
   avatar: string;
   bio: string;
@@ -23,20 +24,26 @@ export default function UserPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
 
+  const [followers, setFollowers] = useState(0);
+  const [following, setFollowing] = useState(0);
+
+  const [isFollowing, setIsFollowing] = useState(false);
+
   useEffect(() => {
     const loadUser = async () => {
       const id = params.id as string;
 
       if (!id) return;
 
-      const { data: profileData, error } = await supabase
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", id)
         .single();
-
-      console.log(profileData);
-      console.log(error);
 
       if (profileData) {
         setProfile(profileData);
@@ -49,10 +56,74 @@ export default function UserPage() {
         .order("id", { ascending: false });
 
       setPosts(userPosts || []);
+
+      const { count: followersCount } = await supabase
+        .from("follows")
+        .select("*", {
+          count: "exact",
+          head: true,
+        })
+        .eq("following_id", id);
+
+      setFollowers(followersCount || 0);
+
+      const { count: followingCount } = await supabase
+        .from("follows")
+        .select("*", {
+          count: "exact",
+          head: true,
+        })
+        .eq("follower_id", id);
+
+      setFollowing(followingCount || 0);
+
+      if (user) {
+        const { data } = await supabase
+          .from("follows")
+          .select("*")
+          .eq("follower_id", user.id)
+          .eq("following_id", id)
+          .single();
+
+        setIsFollowing(!!data);
+      }
     };
 
     loadUser();
   }, [params]);
+
+  const follow = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    await supabase.from("follows").insert([
+      {
+        follower_id: user.id,
+        following_id: params.id,
+      },
+    ]);
+
+    window.location.reload();
+  };
+
+  const unfollow = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    await supabase
+      .from("follows")
+      .delete()
+      .eq("follower_id", user.id)
+      .eq("following_id", params.id);
+
+    window.location.reload();
+  };
 
   if (!profile) {
     return (
@@ -82,9 +153,56 @@ export default function UserPage() {
               {profile.username}
             </h1>
 
-            <p className="text-white/60 text-center">
+            <p className="text-white/60 text-center mb-5">
               {profile.bio}
             </p>
+
+            <div className="flex gap-8 mb-6">
+
+              <div>
+                <div className="font-bold text-center">
+                  {posts.length}
+                </div>
+                <div className="text-white/50">
+                  Posts
+                </div>
+              </div>
+
+              <div>
+                <div className="font-bold text-center">
+                  {followers}
+                </div>
+                <div className="text-white/50">
+                  Followers
+                </div>
+              </div>
+
+              <div>
+                <div className="font-bold text-center">
+                  {following}
+                </div>
+                <div className="text-white/50">
+                  Following
+                </div>
+              </div>
+
+            </div>
+
+            {isFollowing ? (
+              <button
+                onClick={unfollow}
+                className="bg-red-500 hover:bg-red-400 px-6 py-3 rounded-xl"
+              >
+                Unfollow
+              </button>
+            ) : (
+              <button
+                onClick={follow}
+                className="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl"
+              >
+                Follow
+              </button>
+            )}
 
           </div>
 

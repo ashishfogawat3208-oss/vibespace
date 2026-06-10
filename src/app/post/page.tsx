@@ -312,23 +312,29 @@ console.log("UPLOAD ERROR:", uploadError);
               className="bg-white/5 border border-white/10 rounded-3xl p-6"
             >
             <div className="flex items-center gap-3 mb-2">
-               {post.avatar ? (
-  <img
-    src={post.avatar}
-    alt="avatar"
-    className="w-10 h-10 rounded-full object-cover"
-  />
-) : (
-  <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
-    👤
-  </div>
-)}
-                 <div className="font-bold text-white">
-                  {post.username}
-                  </div>
-                  
-                  </div>
 
+  <a href={`/user/${post.user_id}`}>
+    {post.avatar ? (
+      <img
+        src={post.avatar}
+        alt="avatar"
+        className="w-10 h-10 rounded-full object-cover cursor-pointer"
+      />
+    ) : (
+      <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center cursor-pointer">
+        👤
+      </div>
+    )}
+  </a>
+
+  <a
+    href={`/user/${post.user_id}`}
+    className="font-bold text-white hover:text-purple-400"
+  >
+    {post.username}
+  </a>
+
+</div>
               <div className="text-sm text-white/60 mt-1">
                 {post.mood}
               </div>

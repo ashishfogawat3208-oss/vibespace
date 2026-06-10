@@ -176,14 +176,34 @@ export default function UserPage() {
             />
 
             <h1 className="text-4xl font-black mb-4">
-              {profile.username}
-            </h1>
+  {profile.username}
+</h1>
 
-            <p className="text-white/60 text-center mb-5">
-              {profile.bio}
-            </p>
+{isOwnProfile ? (
+  <div className="w-full mb-5">
 
-            <div className="flex gap-10 mb-8">
+    <textarea
+      value={bio}
+      onChange={(e) => setBio(e.target.value)}
+      className="w-full bg-black/30 border border-white/10 rounded-2xl p-4 resize-none"
+      placeholder="Tell people about yourself..."
+    />
+
+    <button
+      onClick={saveBio}
+      className="mt-4 bg-purple-500 hover:bg-purple-400 px-5 py-3 rounded-xl"
+    >
+      Save Bio
+    </button>
+
+  </div>
+) : (
+  <p className="text-white/60 text-center mb-5">
+    {profile.bio}
+  </p>
+)}
+
+<div className="flex gap-10 mb-8">
 
               <div>
                 <div className="font-bold text-center text-xl">

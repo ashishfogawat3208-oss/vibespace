@@ -42,6 +42,13 @@ export default function Navbar() {
         </button>
 
         <button
+          onClick={() => (window.location.href = "/search")}
+          className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl"
+        >
+          🔎 Search
+        </button>
+
+        <button
           onClick={() => (window.location.href = "/profile")}
           className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl"
         >

@@ -28,69 +28,74 @@ export default function UserPage() {
   const [following, setFollowing] = useState(0);
 
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
-    const loadUser = async () => {
-      const id = params.id as string;
-
-      if (!id) return;
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-      }
-
-      const { data: userPosts } = await supabase
-        .from("posts")
-        .select("*")
-        .eq("user_id", id)
-        .order("id", { ascending: false });
-
-      setPosts(userPosts || []);
-
-      const { count: followersCount } = await supabase
-        .from("follows")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq("following_id", id);
-
-      setFollowers(followersCount || 0);
-
-      const { count: followingCount } = await supabase
-        .from("follows")
-        .select("*", {
-          count: "exact",
-          head: true,
-        })
-        .eq("follower_id", id);
-
-      setFollowing(followingCount || 0);
-
-      if (user) {
-        const { data } = await supabase
-          .from("follows")
-          .select("*")
-          .eq("follower_id", user.id)
-          .eq("following_id", id)
-          .single();
-
-        setIsFollowing(!!data);
-      }
-    };
-
     loadUser();
   }, [params]);
+
+  const loadUser = async () => {
+    const id = params.id as string;
+
+    if (!id) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.id === id) {
+      setIsOwnProfile(true);
+    }
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (profileData) {
+      setProfile(profileData);
+    }
+
+    const { data: userPosts } = await supabase
+      .from("posts")
+      .select("*")
+      .eq("user_id", id)
+      .order("id", { ascending: false });
+
+    setPosts(userPosts || []);
+
+    const { count: followersCount } = await supabase
+      .from("follows")
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq("following_id", id);
+
+    setFollowers(followersCount || 0);
+
+    const { count: followingCount } = await supabase
+      .from("follows")
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq("follower_id", id);
+
+    setFollowing(followingCount || 0);
+
+    if (user && user.id !== id) {
+      const { data } = await supabase
+        .from("follows")
+        .select("*")
+        .eq("follower_id", user.id)
+        .eq("following_id", id)
+        .single();
+
+      setIsFollowing(!!data);
+    }
+  };
 
   const follow = async () => {
     const {
@@ -106,7 +111,7 @@ export default function UserPage() {
       },
     ]);
 
-    window.location.reload();
+    loadUser();
   };
 
   const unfollow = async () => {
@@ -122,7 +127,7 @@ export default function UserPage() {
       .eq("follower_id", user.id)
       .eq("following_id", params.id);
 
-    window.location.reload();
+    loadUser();
   };
 
   if (!profile) {
@@ -157,10 +162,10 @@ export default function UserPage() {
               {profile.bio}
             </p>
 
-            <div className="flex gap-8 mb-6">
+            <div className="flex gap-10 mb-8">
 
               <div>
-                <div className="font-bold text-center">
+                <div className="font-bold text-center text-xl">
                   {posts.length}
                 </div>
                 <div className="text-white/50">
@@ -169,7 +174,7 @@ export default function UserPage() {
               </div>
 
               <div>
-                <div className="font-bold text-center">
+                <div className="font-bold text-center text-xl">
                   {followers}
                 </div>
                 <div className="text-white/50">
@@ -178,7 +183,7 @@ export default function UserPage() {
               </div>
 
               <div>
-                <div className="font-bold text-center">
+                <div className="font-bold text-center text-xl">
                   {following}
                 </div>
                 <div className="text-white/50">
@@ -188,20 +193,24 @@ export default function UserPage() {
 
             </div>
 
-            {isFollowing ? (
-              <button
-                onClick={unfollow}
-                className="bg-red-500 hover:bg-red-400 px-6 py-3 rounded-xl"
-              >
-                Unfollow
-              </button>
-            ) : (
-              <button
-                onClick={follow}
-                className="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl"
-              >
-                Follow
-              </button>
+            {!isOwnProfile && (
+              <>
+                {isFollowing ? (
+                  <button
+                    onClick={unfollow}
+                    className="bg-red-500 hover:bg-red-400 px-6 py-3 rounded-xl"
+                  >
+                    Unfollow
+                  </button>
+                ) : (
+                  <button
+                    onClick={follow}
+                    className="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl"
+                  >
+                    Follow
+                  </button>
+                )}
+              </>
             )}
 
           </div>

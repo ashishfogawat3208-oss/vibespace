@@ -20,8 +20,13 @@ type Post = {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [bio, setBio] = useState("");
-  const [postCount, setPostCount] = useState(0);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [followers, setFollowers] = useState(0);
+  const [following, setFollowing] = useState(0);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const loadProfile = async () => {
     const {
@@ -33,39 +38,45 @@ export default function ProfilePage() {
       return;
     }
 
-    const { data } = await supabase
+    const { data: profileData } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
-    if (data) {
-      setProfile(data);
-      setBio(data.bio || "");
+    if (profileData) {
+      setProfile(profileData);
+      setBio(profileData.bio || "");
     }
-
-    const { count } = await supabase
-      .from("posts")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("email", user.email);
-
-    setPostCount(count || 0);
 
     const { data: userPosts } = await supabase
       .from("posts")
       .select("*")
-      .eq("email", user.email)
+      .eq("user_id", user.id)
       .order("id", { ascending: false });
 
     setPosts(userPosts || []);
-  };
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+    const { count: followersCount } = await supabase
+      .from("follows")
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq("following_id", user.id);
+
+    setFollowers(followersCount || 0);
+
+    const { count: followingCount } = await supabase
+      .from("follows")
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq("follower_id", user.id);
+
+    setFollowing(followingCount || 0);
+  };
 
   const saveBio = async () => {
     if (!profile) return;
@@ -104,13 +115,44 @@ export default function ProfilePage() {
               className="w-32 h-32 rounded-full object-cover mb-5"
             />
 
-            <h1 className="text-4xl font-black mb-2">
+            <h1 className="text-4xl font-black mb-4">
               {profile.username}
             </h1>
 
-            <p className="text-purple-400 mb-8">
-              {postCount} Posts
+            <p className="text-white/60 text-center mb-5">
+              {profile.bio}
             </p>
+
+            <div className="flex gap-10 mb-8">
+
+              <div>
+                <div className="font-bold text-center text-xl">
+                  {posts.length}
+                </div>
+                <div className="text-white/50">
+                  Posts
+                </div>
+              </div>
+
+              <div>
+                <div className="font-bold text-center text-xl">
+                  {followers}
+                </div>
+                <div className="text-white/50">
+                  Followers
+                </div>
+              </div>
+
+              <div>
+                <div className="font-bold text-center text-xl">
+                  {following}
+                </div>
+                <div className="text-white/50">
+                  Following
+                </div>
+              </div>
+
+            </div>
 
           </div>
 

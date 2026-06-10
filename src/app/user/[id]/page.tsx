@@ -29,6 +29,8 @@ export default function UserPage() {
 
   const [isFollowing, setIsFollowing] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  
+  const [bio, setBio] = useState("");
 
   useEffect(() => {
     loadUser();
@@ -54,8 +56,9 @@ export default function UserPage() {
       .single();
 
     if (profileData) {
-      setProfile(profileData);
-    }
+  setProfile(profileData);
+  setBio(profileData.bio || "");
+}
 
     const { data: userPosts } = await supabase
       .from("posts")
@@ -113,6 +116,24 @@ export default function UserPage() {
 
     loadUser();
   };
+
+  const saveBio = async () => {
+  if (!profile) return;
+
+  await supabase
+    .from("profiles")
+    .update({
+      bio,
+    })
+    .eq("id", profile.id);
+
+  setProfile({
+    ...profile,
+    bio,
+  });
+
+  alert("Bio Updated 🚀");
+};
 
   const unfollow = async () => {
     const {

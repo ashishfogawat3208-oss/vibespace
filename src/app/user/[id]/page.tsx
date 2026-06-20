@@ -101,21 +101,34 @@ export default function UserPage() {
   };
 
   const follow = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) return;
+  if (!user || !profile) return;
 
-    await supabase.from("follows").insert([
-      {
-        follower_id: user.id,
-        following_id: params.id,
-      },
-    ]);
+  // follow
+  await supabase.from("follows").insert([
+    {
+      follower_id: user.id,
+      following_id: params.id,
+    },
+  ]);
 
-    loadUser();
-  };
+  // notification
+  await supabase.from("notifications").insert([
+    {
+      sender_id: user.id,
+      receiver_id: params.id,
+      type: "follow",
+      text: `${
+        user.user_metadata?.full_name || user.email
+      } started following you 👤`,
+    },
+  ]);
+
+  loadUser();
+};
 
   const saveBio = async () => {
   if (!profile) return;

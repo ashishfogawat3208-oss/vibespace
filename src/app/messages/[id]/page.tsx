@@ -26,28 +26,16 @@ export default function ChatPage() {
   loadMessages();
 
   const channel = supabase
-    .channel(`chat-${params.id}`)
+    .channel("messages-realtime")
     .on(
       "postgres_changes",
       {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "messages",
       },
-      (payload) => {
-        const newMessage = payload.new as Message;
-
-        const otherUser = params.id as string;
-
-        const belongsToChat =
-          (newMessage.sender_id === userId &&
-            newMessage.receiver_id === otherUser) ||
-          (newMessage.sender_id === otherUser &&
-            newMessage.receiver_id === userId);
-
-        if (belongsToChat) {
-          setMessages((prev) => [...prev, newMessage]);
-        }
+      () => {
+        loadMessages();
       }
     )
     .subscribe();
@@ -55,7 +43,7 @@ export default function ChatPage() {
   return () => {
     supabase.removeChannel(channel);
   };
-}, [params, userId]);
+}, [params]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -70,13 +58,7 @@ export default function ChatPage() {
 
     if (!user) return;
 
-    useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    if (data.user) {
-      setUserId(data.user.id);
-    }
-  });
-}, []);
+   setUserId(user.id);
 
     const otherUser = params.id as string;
 

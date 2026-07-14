@@ -34,9 +34,10 @@ export default function ChatPage() {
         schema: "public",
         table: "messages",
       },
-      () => {
-        loadMessages();
-      }
+      (payload) => {
+  console.log("REALTIME EVENT:", payload);
+  loadMessages();
+}
     )
     .subscribe();
 

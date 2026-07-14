@@ -76,24 +76,39 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!text.trim()) return;
+  if (!text.trim()) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) return;
+  if (!user) {
+    console.log("No user");
+    return;
+  }
 
-    await supabase.from("messages").insert([
+  console.log("Sender:", user.id);
+  console.log("Receiver:", params.id);
+
+  const { data, error } = await supabase
+    .from("messages")
+    .insert([
       {
         sender_id: user.id,
         receiver_id: params.id,
         message: text,
       },
-    ]);
+    ])
+    .select();
 
+  console.log("INSERT DATA:", data);
+  console.log("INSERT ERROR:", error);
+
+  if (!error) {
     setText("");
-  };
+    loadMessages();
+  }
+};
 
   return (
     <main className="min-h-screen bg-black text-white px-6 py-20">

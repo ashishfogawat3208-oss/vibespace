@@ -35,11 +35,13 @@ export default function ChatPage() {
       table: "messages",
     },
     (payload) => {
-      console.log("REALTIME EVENT:", payload);
+      console.log("Realtime payload:", payload);
       loadMessages();
     }
   )
-  .subscribe();
+  .subscribe((status) => {
+    console.log("Realtime status:", status);
+  });
 
   return () => {
     supabase.removeChannel(channel);

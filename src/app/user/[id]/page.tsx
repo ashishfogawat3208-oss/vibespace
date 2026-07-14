@@ -248,24 +248,35 @@ export default function UserPage() {
             </div>
 
             {!isOwnProfile && (
-              <>
-                {isFollowing ? (
-                  <button
-                    onClick={unfollow}
-                    className="bg-red-500 hover:bg-red-400 px-6 py-3 rounded-xl"
-                  >
-                    Unfollow
-                  </button>
-                ) : (
-                  <button
-                    onClick={follow}
-                    className="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl"
-                  >
-                    Follow
-                  </button>
-                )}
-              </>
-            )}
+  <div className="flex gap-4">
+
+    {isFollowing ? (
+      <button
+        onClick={unfollow}
+        className="bg-red-500 hover:bg-red-400 px-6 py-3 rounded-xl"
+      >
+        Unfollow
+      </button>
+    ) : (
+      <button
+        onClick={follow}
+        className="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl"
+      >
+        Follow
+      </button>
+    )}
+
+    <button
+      onClick={() =>
+        (window.location.href = `/messages/${profile.id}`)
+      }
+      className="bg-blue-500 hover:bg-blue-400 px-6 py-3 rounded-xl"
+    >
+      💬 Message
+    </button>
+
+  </div>
+)}
 
           </div>
 

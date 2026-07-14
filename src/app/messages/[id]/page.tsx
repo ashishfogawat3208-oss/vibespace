@@ -23,27 +23,39 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadMessages();
+  loadMessages();
 
-    const channel = supabase
-      .channel("messages-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "messages",
-        },
-        () => {
-          loadMessages();
+  const channel = supabase
+    .channel(`chat-${params.id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        const newMessage = payload.new as Message;
+
+        const otherUser = params.id as string;
+
+        const belongsToChat =
+          (newMessage.sender_id === userId &&
+            newMessage.receiver_id === otherUser) ||
+          (newMessage.sender_id === otherUser &&
+            newMessage.receiver_id === userId);
+
+        if (belongsToChat) {
+          setMessages((prev) => [...prev, newMessage]);
         }
-      )
-      .subscribe();
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [params]);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [params, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -58,7 +70,13 @@ export default function ChatPage() {
 
     if (!user) return;
 
-    setUserId(user.id);
+    useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (data.user) {
+      setUserId(data.user.id);
+    }
+  });
+}, []);
 
     const otherUser = params.id as string;
 

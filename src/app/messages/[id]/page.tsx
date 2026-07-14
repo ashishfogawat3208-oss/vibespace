@@ -26,20 +26,20 @@ export default function ChatPage() {
   loadMessages();
 
   const channel = supabase
-    .channel("messages-realtime")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-      },
-      (payload) => {
-  console.log("REALTIME EVENT:", payload);
-  loadMessages();
-}
-    )
-    .subscribe();
+  .channel("messages-realtime")
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "messages",
+    },
+    (payload) => {
+      console.log("REALTIME EVENT:", payload);
+      loadMessages();
+    }
+  )
+  .subscribe();
 
   return () => {
     supabase.removeChannel(channel);

@@ -10,10 +10,16 @@ import MessageMenu from "@/components/chat/MessageMenu";
 
 import { supabase } from "@/lib/supabase";
 
+type ReplyPreview = {
+  id: number;
+  message: string;
+};
+
 type Message = {
   id: number;
   sender_id: string;
   receiver_id: string;
+
   message: string;
   image_url: string | null;
 
@@ -24,6 +30,10 @@ type Message = {
 
   edited: boolean;
   deleted: boolean;
+
+  reply_to: number | null;
+
+  reply: ReplyPreview | null;
 };
 
 export default function ChatPage() {
@@ -37,7 +47,11 @@ export default function ChatPage() {
 
   const [sending, setSending] = useState(false);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] =
+    useState<number | null>(null);
+
+  const [replyingTo, setReplyingTo] =
+    useState<ReplyPreview | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +84,10 @@ export default function ChatPage() {
     });
   }, [messages]);
 
-  async function markSeen(list: Message[], currentUser: string) {
+  async function markSeen(
+    list: Message[],
+    currentUser: string
+  ) {
     const unseen = list
       .filter(
         (m) =>
@@ -110,7 +127,26 @@ export default function ChatPage() {
         ascending: true,
       });
 
-    const list = (data || []).filter((m) => !m.deleted);
+    const rows = (data || []).filter(
+      (m) => !m.deleted
+    );
+
+    const replyMap = new Map(
+      rows.map((m) => [
+        m.id,
+        {
+          id: m.id,
+          message: m.message,
+        },
+      ])
+    );
+
+    const list: Message[] = rows.map((m) => ({
+      ...m,
+      reply: m.reply_to
+        ? replyMap.get(m.reply_to) || null
+        : null,
+    }));
 
     setMessages(list);
 
@@ -121,7 +157,9 @@ export default function ChatPage() {
     const fileName =
       Date.now() +
       "-" +
-      Math.random().toString(36).substring(2) +
+      Math.random()
+        .toString(36)
+        .substring(2) +
       "-" +
       file.name;
 
@@ -135,196 +173,252 @@ export default function ChatPage() {
       .from("post-images")
       .getPublicUrl(fileName).data.publicUrl;
   }
-    async function sendMessage(text: string, image: File | null) {
-    if (!text.trim() && !image) return;
+  async function sendMessage(
+  text: string,
+  image: File | null
+) {
+  if (!text.trim() && !image) return;
 
-    setSending(true);
+  setSending(true);
 
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!user) return;
+    if (!user) return;
 
-      let imageUrl: string | null = null;
+    let imageUrl: string | null = null;
 
-      if (image) {
-        imageUrl = await uploadImage(image);
-      }
+    if (image) {
+      imageUrl = await uploadImage(image);
+    }
 
-      const optimistic: Message = {
-        id: Date.now(),
-        sender_id: user.id,
-        receiver_id: otherUser,
-        message: text,
-        image_url: imageUrl,
-        created_at: new Date().toISOString(),
-        seen: false,
-        seen_at: null,
-        edited: false,
-        deleted: false,
-      };
+    const optimistic: Message = {
+      id: Date.now(),
 
-      setMessages((prev) => [...prev, optimistic]);
+      sender_id: user.id,
+      receiver_id: otherUser,
 
-      bottomRef.current?.scrollIntoView({
-        behavior: "smooth",
-      });
+      message: text,
+      image_url: imageUrl,
 
-      const { error } = await supabase.from("messages").insert([
+      created_at: new Date().toISOString(),
+
+      seen: false,
+      seen_at: null,
+
+      edited: false,
+      deleted: false,
+
+      reply_to: replyingTo?.id ?? null,
+
+      reply: replyingTo,
+    };
+
+    setMessages((prev) => [...prev, optimistic]);
+
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+
+    const { error } = await supabase
+      .from("messages")
+      .insert([
         {
           sender_id: user.id,
+
           receiver_id: otherUser,
+
           message: text,
+
           image_url: imageUrl,
+
+          reply_to: replyingTo?.id ?? null,
+
           seen: false,
+
           edited: false,
+
           deleted: false,
         },
       ]);
 
-      if (error) {
-        setMessages((prev) =>
-          prev.filter((m) => m.id !== optimistic.id)
-        );
-        console.error(error);
-      }
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function editMessage(id: number) {
-    const current = messages.find((m) => m.id === id);
-
-    if (!current) return;
-
-    const value = window.prompt(
-      "Edit your message",
-      current.message
-    );
-
-    if (value === null) return;
-
-    const trimmed = value.trim();
-
-    if (!trimmed) return;
-
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? {
-              ...m,
-              message: trimmed,
-              edited: true,
-            }
-          : m
-      )
-    );
-
-    const { error } = await supabase
-      .from("messages")
-      .update({
-        message: trimmed,
-        edited: true,
-      })
-      .eq("id", id);
-
     if (error) {
-      console.error(error);
-      loadMessages();
-    }
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== optimistic.id)
+      );
 
-    setEditingId(null);
+      console.error(error);
+    } else {
+      setReplyingTo(null);
+    }
+  } finally {
+    setSending(false);
+  }
+}
+
+async function editMessage(id: number) {
+  const current = messages.find(
+    (m) => m.id === id
+  );
+
+  if (!current) return;
+
+  const value = window.prompt(
+    "Edit your message",
+    current.message
+  );
+
+  if (value === null) return;
+
+  const trimmed = value.trim();
+
+  if (!trimmed) return;
+
+  setMessages((prev) =>
+    prev.map((m) =>
+      m.id === id
+        ? {
+            ...m,
+
+            message: trimmed,
+
+            edited: true,
+          }
+        : m
+    )
+  );
+
+  const { error } = await supabase
+    .from("messages")
+    .update({
+      message: trimmed,
+
+      edited: true,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+
+    loadMessages();
   }
 
-  async function deleteMessage(id: number) {
-    const confirmDelete = window.confirm(
-      "Delete this message?"
-    );
+  setEditingId(null);
+}
 
-    if (!confirmDelete) return;
+async function deleteMessage(id: number) {
+  const confirmDelete = window.confirm(
+    "Delete this message?"
+  );
 
-    setMessages((prev) =>
-      prev.filter((m) => m.id !== id)
-    );
+  if (!confirmDelete) return;
 
-    const { error } = await supabase
-      .from("messages")
-      .update({
-        deleted: true,
-      })
-      .eq("id", id);
+  setMessages((prev) =>
+    prev.filter((m) => m.id !== id)
+  );
 
-    if (error) {
-      console.error(error);
-      loadMessages();
-    }
+  const { error } = await supabase
+    .from("messages")
+    .update({
+      deleted: true,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+
+    loadMessages();
   }
-    return (
-    <main className="min-h-screen bg-black text-white px-6 py-20">
-      <div className="max-w-3xl mx-auto">
+}
 
-        <Navbar />
+function startReply(message: Message) {
+  setReplyingTo({
+    id: message.id,
+    message: message.message,
+  });
+}
 
-        <h1 className="text-4xl font-black mb-8">
-          💬 Chat
-        </h1>
+function cancelReply() {
+  setReplyingTo(null);
+}
+return (
+  <main className="min-h-screen bg-black text-white px-6 py-20">
+    <div className="max-w-3xl mx-auto">
+      <Navbar />
 
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 h-[65vh] overflow-y-auto">
+      <h1 className="text-4xl font-black mb-8">
+        💬 Chat
+      </h1>
 
-          {messages.length === 0 && (
-            <div className="h-full flex items-center justify-center text-white/40">
-              Start your conversation 👋
-            </div>
-          )}
-
-          {messages.map((msg) => {
-            const isOwn = msg.sender_id === userId;
-
-            return (
-              <div key={msg.id} className="group relative">
-
-                <ChatBubble
-                  message={msg}
-                  isOwn={isOwn}
-                />
-
-                {isOwn && (
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
-
-                    <MessageMenu
-                      onEdit={() => {
-                        setEditingId(msg.id);
-                        editMessage(msg.id);
-                      }}
-                      onDelete={() => deleteMessage(msg.id)}
-                    />
-
-                  </div>
-                )}
-
-              </div>
-            );
-          })}
-
-          <div ref={bottomRef} />
-
-        </div>
-
-        {editingId && (
-          <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
-            Editing message...
+      <div className="bg-white/5 border border-white/10 rounded-3xl p-6 h-[65vh] overflow-y-auto">
+        {messages.length === 0 && (
+          <div className="h-full flex items-center justify-center text-white/40">
+            Start your conversation 👋
           </div>
         )}
 
-        <ChatInput
-          onSend={sendMessage}
-          sending={sending}
-        />
+        {messages.map((msg) => {
+          const isOwn = msg.sender_id === userId;
 
+          return (
+            <div
+              key={msg.id}
+              id={`message-${msg.id}`}
+              className="group relative"
+            >
+              <ChatBubble
+                message={msg}
+                isOwn={isOwn}
+                reply={msg.reply ?? undefined}
+                onReplyClick={() => {
+                  if (!msg.reply) return;
+
+                  document
+                    .getElementById(
+                      `message-${msg.reply.id}`
+                    )
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                }}
+              />
+
+              {isOwn && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+                  <MessageMenu
+                    onReply={() => startReply(msg)}
+                    onEdit={() => {
+                      setEditingId(msg.id);
+                      editMessage(msg.id);
+                    }}
+                    onDelete={() =>
+                      deleteMessage(msg.id)
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <div ref={bottomRef} />
       </div>
-    </main>
-  );
-}
+
+      {editingId && (
+        <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+          Editing message...
+        </div>
+      )}
+
+      <ChatInput
+        onSend={sendMessage}
+        sending={sending}
+        replyingTo={replyingTo}
+        onCancelReply={cancelReply}
+      />
+    </div>
+  </main>
+);

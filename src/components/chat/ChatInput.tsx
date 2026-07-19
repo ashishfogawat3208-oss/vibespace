@@ -2,31 +2,72 @@
 
 import { useState } from "react";
 
+type ReplyMessage = {
+  id: number;
+  message: string;
+};
+
 type Props = {
   onSend: (text: string, image: File | null) => Promise<void>;
+
   sending: boolean;
+
+  replyingTo: ReplyMessage | null;
+
+  onCancelReply: () => void;
 };
 
 export default function ChatInput({
   onSend,
   sending,
+  replyingTo,
+  onCancelReply,
 }: Props) {
   const [text, setText] = useState("");
+
   const [image, setImage] = useState<File | null>(null);
 
-  const send = async () => {
+  async function send() {
     if (!text.trim() && !image) return;
 
     await onSend(text, image);
 
     setText("");
+
     setImage(null);
-  };
+  }
 
   return (
     <>
+
+      {replyingTo && (
+        <div className="mb-3 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 flex items-start justify-between">
+
+          <div>
+
+            <div className="text-xs text-purple-300 font-semibold">
+              ↩ Replying
+            </div>
+
+            <div className="text-sm text-white/80 line-clamp-2">
+              {replyingTo.message}
+            </div>
+
+          </div>
+
+          <button
+            onClick={onCancelReply}
+            className="ml-4 text-red-400 hover:text-red-300"
+          >
+            ✕
+          </button>
+
+        </div>
+      )}
+
       {image && (
-        <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 flex justify-between items-center">
+        <div className="mb-3 rounded-xl bg-white/10 px-4 py-2 flex justify-between items-center">
+
           <span className="truncate">
             📷 {image.name}
           </span>
@@ -37,15 +78,16 @@ export default function ChatInput({
           >
             ✕
           </button>
+
         </div>
       )}
 
-      <div className="flex gap-3 mt-6">
+      <div className="flex gap-3">
 
         <input
+          id="chat-image"
           type="file"
           accept="image/*"
-          id="chat-image"
           className="hidden"
           onChange={(e) => {
             if (e.target.files?.length) {
@@ -56,7 +98,7 @@ export default function ChatInput({
 
         <label
           htmlFor="chat-image"
-          className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl"
+          className="cursor-pointer rounded-xl bg-white/10 hover:bg-white/20 px-5 py-3"
         >
           📷
         </label>
@@ -64,8 +106,12 @@ export default function ChatInput({
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 bg-black/30 border border-white/10 rounded-xl px-5 py-3"
+          placeholder={
+            replyingTo
+              ? "Reply..."
+              : "Type a message..."
+          }
+          className="flex-1 rounded-xl border border-white/10 bg-black/30 px-5 py-3"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               send();
@@ -76,12 +122,13 @@ export default function ChatInput({
         <button
           disabled={sending}
           onClick={send}
-          className="bg-purple-500 hover:bg-purple-400 px-6 rounded-xl disabled:opacity-50"
+          className="rounded-xl bg-purple-500 px-6 hover:bg-purple-400 disabled:opacity-50"
         >
           {sending ? "..." : "Send"}
         </button>
 
       </div>
+
     </>
   );
 }

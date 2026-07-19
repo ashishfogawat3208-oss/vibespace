@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 type Props = {
+  onReply: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
 export default function MessageMenu({
+  onReply,
   onEdit,
   onDelete,
 }: Props) {
@@ -26,47 +28,56 @@ export default function MessageMenu({
 
     document.addEventListener("mousedown", close);
 
-    return () =>
+    return () => {
       document.removeEventListener("mousedown", close);
+    };
   }, []);
 
+  const run = (fn: () => void) => {
+    setOpen(false);
+    fn();
+  };
+
   return (
-    <div
-      ref={menuRef}
-      className="relative inline-block"
-    >
+    <div ref={menuRef} className="relative inline-block">
+
       <button
-        onClick={() => setOpen(!open)}
-        className="text-gray-300 hover:text-white px-2 py-1"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-lg px-2 py-1 text-gray-300 transition hover:bg-white/10 hover:text-white"
       >
         ⋮
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-zinc-900 shadow-xl overflow-hidden z-50">
+        <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-150">
 
           <button
-            onClick={() => {
-              setOpen(false);
-              onEdit();
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-white/10"
+            onClick={() => run(onReply)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition"
           >
-            ✏️ Edit Message
+            ↩️
+            <span>Reply</span>
           </button>
 
           <button
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-            className="w-full text-left px-4 py-3 hover:bg-red-500/20 text-red-400"
+            onClick={() => run(onEdit)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/10 transition"
           >
-            🗑 Delete Message
+            ✏️
+            <span>Edit Message</span>
+          </button>
+
+          <button
+            onClick={() => run(onDelete)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left text-red-400 hover:bg-red-500/20 transition"
+          >
+            🗑
+            <span>Delete Message</span>
           </button>
 
         </div>
       )}
+
     </div>
   );
 }

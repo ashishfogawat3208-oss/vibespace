@@ -10,6 +10,7 @@ type Message = {
   sender_id: string;
   receiver_id: string;
   message: string;
+  image_url: string | null;
   created_at: string;
 };
 
@@ -19,34 +20,33 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [userId, setUserId] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-  loadMessages();
+    loadMessages();
 
-  const channel = supabase
-  .channel("messages-realtime")
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "messages",
-    },
-    (payload) => {
-      console.log("Realtime payload:", payload);
-      loadMessages();
-    }
-  )
-  .subscribe((status) => {
-    console.log("Realtime status:", status);
-  });
+    const channel = supabase
+      .channel("messages-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          loadMessages();
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [params]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [params]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -61,7 +61,7 @@ export default function ChatPage() {
 
     if (!user) return;
 
-   setUserId(user.id);
+    setUserId(user.id);
 
     const otherUser = params.id as string;
 
@@ -79,43 +79,55 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-  if (!text.trim()) return;
+    if (!text.trim() && !image) return;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    setSending(true);
 
-  if (!user) {
-    console.log("No user");
-    return;
-  }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  console.log("Sender:", user.id);
-  console.log("Receiver:", params.id);
+    if (!user) {
+      setSending(false);
+      return;
+    }
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert([
+    let imageUrl: string | null = null;
+
+    if (image) {
+      const fileName = `${Date.now()}-${image.name}`;
+
+      const { error } = await supabase.storage
+        .from("post-images")
+        .upload(fileName, image);
+
+      if (!error) {
+        imageUrl = supabase.storage
+          .from("post-images")
+          .getPublicUrl(fileName).data.publicUrl;
+      }
+    }
+
+    const { error } = await supabase.from("messages").insert([
       {
         sender_id: user.id,
         receiver_id: params.id,
         message: text,
+        image_url: imageUrl,
       },
-    ])
-    .select();
+    ]);
 
-  console.log("INSERT DATA:", data);
-  console.log("INSERT ERROR:", error);
+    if (!error) {
+      setText("");
+      setImage(null);
+      loadMessages();
+    }
 
-  if (!error) {
-    setText("");
-    loadMessages();
-  }
-};
+    setSending(false);
+  };
 
   return (
     <main className="min-h-screen bg-black text-white px-6 py-20">
-
       <div className="max-w-3xl mx-auto">
 
         <Navbar />
@@ -136,13 +148,25 @@ export default function ChatPage() {
               }`}
             >
               <div
-                className={`max-w-[70%] px-5 py-3 rounded-2xl ${
+                className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                   msg.sender_id === userId
                     ? "bg-purple-500"
                     : "bg-white/10"
                 }`}
               >
-                {msg.message}
+                {msg.message && (
+                  <p className="whitespace-pre-wrap break-words">
+                    {msg.message}
+                  </p>
+                )}
+
+                {msg.image_url && (
+                  <img
+                    src={msg.image_url}
+                    alt="chat"
+                    className="mt-3 rounded-xl max-h-80 w-full object-cover"
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -151,26 +175,65 @@ export default function ChatPage() {
 
         </div>
 
+        {image && (
+          <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 flex justify-between items-center">
+            <span className="truncate">
+              📷 {image.name}
+            </span>
+
+            <button
+              onClick={() => setImage(null)}
+              className="text-red-400"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-3 mt-6">
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files?.length) {
+                setImage(e.target.files[0]);
+              }
+            }}
+            className="hidden"
+            id="chat-image"
+          />
+
+          <label
+            htmlFor="chat-image"
+            className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl"
+          >
+            📷
+          </label>
 
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message..."
             className="flex-1 bg-black/30 border border-white/10 rounded-xl px-5 py-3"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMessage();
+              }
+            }}
           />
 
           <button
+            disabled={sending}
             onClick={sendMessage}
-            className="bg-purple-500 hover:bg-purple-400 px-6 rounded-xl"
+            className="bg-purple-500 hover:bg-purple-400 px-6 rounded-xl disabled:opacity-50"
           >
-            Send
+            {sending ? "..." : "Send"}
           </button>
 
         </div>
 
       </div>
-
     </main>
   );
 }

@@ -369,22 +369,19 @@ return (
               className="group relative"
             >
               <ChatBubble
-                message={msg}
-                isOwn={isOwn}
-                reply={msg.reply ?? undefined}
-                onReplyClick={() => {
-                  if (!msg.reply) return;
+  message={msg}
+  isOwn={isOwn}
+  onReplyClick={() => {
+    if (!msg.reply) return;
 
-                  document
-                    .getElementById(
-                      `message-${msg.reply.id}`
-                    )
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                }}
-              />
+    document
+      .getElementById(`message-${msg.reply.id}`)
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+  }}
+/>
 
               {isOwn && (
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
@@ -422,3 +419,4 @@ return (
     </div>
   </main>
 );
+}

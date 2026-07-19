@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+
 import Navbar from "@/components/Navbar";
+import ChatBubble from "@/components/chat/ChatBubble";
+import ChatInput from "@/components/chat/ChatInput";
+import MessageMenu from "@/components/chat/MessageMenu";
+
 import { supabase } from "@/lib/supabase";
 
 type Message = {
@@ -11,17 +16,28 @@ type Message = {
   receiver_id: string;
   message: string;
   image_url: string | null;
+
   created_at: string;
+
+  seen: boolean;
+  seen_at: string | null;
+
+  edited: boolean;
+  deleted: boolean;
 };
 
 export default function ChatPage() {
   const params = useParams();
 
+  const otherUser = params.id as string;
+
   const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState("");
+
   const [userId, setUserId] = useState("");
-  const [image, setImage] = useState<File | null>(null);
+
   const [sending, setSending] = useState(false);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -29,7 +45,7 @@ export default function ChatPage() {
     loadMessages();
 
     const channel = supabase
-      .channel("messages-realtime")
+      .channel(`chat-${otherUser}`)
       .on(
         "postgres_changes",
         {
@@ -46,7 +62,7 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [params]);
+  }, [otherUser]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -54,7 +70,28 @@ export default function ChatPage() {
     });
   }, [messages]);
 
-  const loadMessages = async () => {
+  async function markSeen(list: Message[], currentUser: string) {
+    const unseen = list
+      .filter(
+        (m) =>
+          m.receiver_id === currentUser &&
+          m.sender_id === otherUser &&
+          !m.seen
+      )
+      .map((m) => m.id);
+
+    if (!unseen.length) return;
+
+    await supabase
+      .from("messages")
+      .update({
+        seen: true,
+        seen_at: new Date().toISOString(),
+      })
+      .in("id", unseen);
+  }
+
+  async function loadMessages() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -62,8 +99,6 @@ export default function ChatPage() {
     if (!user) return;
 
     setUserId(user.id);
-
-    const otherUser = params.id as string;
 
     const { data } = await supabase
       .from("messages")
@@ -75,58 +110,159 @@ export default function ChatPage() {
         ascending: true,
       });
 
-    setMessages(data || []);
-  };
+    const list = (data || []).filter((m) => !m.deleted);
 
-  const sendMessage = async () => {
+    setMessages(list);
+
+    await markSeen(list, user.id);
+  }
+
+  async function uploadImage(file: File) {
+    const fileName =
+      Date.now() +
+      "-" +
+      Math.random().toString(36).substring(2) +
+      "-" +
+      file.name;
+
+    const { error } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, file);
+
+    if (error) return null;
+
+    return supabase.storage
+      .from("post-images")
+      .getPublicUrl(fileName).data.publicUrl;
+  }
+    async function sendMessage(text: string, image: File | null) {
     if (!text.trim() && !image) return;
 
     setSending(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setSending(false);
-      return;
-    }
+      if (!user) return;
 
-    let imageUrl: string | null = null;
+      let imageUrl: string | null = null;
 
-    if (image) {
-      const fileName = `${Date.now()}-${image.name}`;
-
-      const { error } = await supabase.storage
-        .from("post-images")
-        .upload(fileName, image);
-
-      if (!error) {
-        imageUrl = supabase.storage
-          .from("post-images")
-          .getPublicUrl(fileName).data.publicUrl;
+      if (image) {
+        imageUrl = await uploadImage(image);
       }
-    }
 
-    const { error } = await supabase.from("messages").insert([
-      {
+      const optimistic: Message = {
+        id: Date.now(),
         sender_id: user.id,
-        receiver_id: params.id,
+        receiver_id: otherUser,
         message: text,
         image_url: imageUrl,
-      },
-    ]);
+        created_at: new Date().toISOString(),
+        seen: false,
+        seen_at: null,
+        edited: false,
+        deleted: false,
+      };
 
-    if (!error) {
-      setText("");
-      setImage(null);
+      setMessages((prev) => [...prev, optimistic]);
+
+      bottomRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+
+      const { error } = await supabase.from("messages").insert([
+        {
+          sender_id: user.id,
+          receiver_id: otherUser,
+          message: text,
+          image_url: imageUrl,
+          seen: false,
+          edited: false,
+          deleted: false,
+        },
+      ]);
+
+      if (error) {
+        setMessages((prev) =>
+          prev.filter((m) => m.id !== optimistic.id)
+        );
+        console.error(error);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function editMessage(id: number) {
+    const current = messages.find((m) => m.id === id);
+
+    if (!current) return;
+
+    const value = window.prompt(
+      "Edit your message",
+      current.message
+    );
+
+    if (value === null) return;
+
+    const trimmed = value.trim();
+
+    if (!trimmed) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              message: trimmed,
+              edited: true,
+            }
+          : m
+      )
+    );
+
+    const { error } = await supabase
+      .from("messages")
+      .update({
+        message: trimmed,
+        edited: true,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
       loadMessages();
     }
 
-    setSending(false);
-  };
+    setEditingId(null);
+  }
 
-  return (
+  async function deleteMessage(id: number) {
+    const confirmDelete = window.confirm(
+      "Delete this message?"
+    );
+
+    if (!confirmDelete) return;
+
+    setMessages((prev) =>
+      prev.filter((m) => m.id !== id)
+    );
+
+    const { error } = await supabase
+      .from("messages")
+      .update({
+        deleted: true,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      loadMessages();
+    }
+  }
+    return (
     <main className="min-h-screen bg-black text-white px-6 py-20">
       <div className="max-w-3xl mx-auto">
 
@@ -138,100 +274,55 @@ export default function ChatPage() {
 
         <div className="bg-white/5 border border-white/10 rounded-3xl p-6 h-[65vh] overflow-y-auto">
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`mb-4 flex ${
-                msg.sender_id === userId
-                  ? "justify-end"
-                  : "justify-start"
-              }`}
-            >
-              <div
-                className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                  msg.sender_id === userId
-                    ? "bg-purple-500"
-                    : "bg-white/10"
-                }`}
-              >
-                {msg.message && (
-                  <p className="whitespace-pre-wrap break-words">
-                    {msg.message}
-                  </p>
+          {messages.length === 0 && (
+            <div className="h-full flex items-center justify-center text-white/40">
+              Start your conversation 👋
+            </div>
+          )}
+
+          {messages.map((msg) => {
+            const isOwn = msg.sender_id === userId;
+
+            return (
+              <div key={msg.id} className="group relative">
+
+                <ChatBubble
+                  message={msg}
+                  isOwn={isOwn}
+                />
+
+                {isOwn && (
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+
+                    <MessageMenu
+                      onEdit={() => {
+                        setEditingId(msg.id);
+                        editMessage(msg.id);
+                      }}
+                      onDelete={() => deleteMessage(msg.id)}
+                    />
+
+                  </div>
                 )}
 
-                {msg.image_url && (
-                  <img
-                    src={msg.image_url}
-                    alt="chat"
-                    className="mt-3 rounded-xl max-h-80 w-full object-cover"
-                  />
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div ref={bottomRef} />
 
         </div>
 
-        {image && (
-          <div className="mt-4 bg-white/10 rounded-xl px-4 py-2 flex justify-between items-center">
-            <span className="truncate">
-              📷 {image.name}
-            </span>
-
-            <button
-              onClick={() => setImage(null)}
-              className="text-red-400"
-            >
-              ✕
-            </button>
+        {editingId && (
+          <div className="mt-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+            Editing message...
           </div>
         )}
 
-        <div className="flex gap-3 mt-6">
-
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              if (e.target.files?.length) {
-                setImage(e.target.files[0]);
-              }
-            }}
-            className="hidden"
-            id="chat-image"
-          />
-
-          <label
-            htmlFor="chat-image"
-            className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl"
-          >
-            📷
-          </label>
-
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-black/30 border border-white/10 rounded-xl px-5 py-3"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                sendMessage();
-              }
-            }}
-          />
-
-          <button
-            disabled={sending}
-            onClick={sendMessage}
-            className="bg-purple-500 hover:bg-purple-400 px-6 rounded-xl disabled:opacity-50"
-          >
-            {sending ? "..." : "Send"}
-          </button>
-
-        </div>
+        <ChatInput
+          onSend={sendMessage}
+          sending={sending}
+        />
 
       </div>
     </main>
